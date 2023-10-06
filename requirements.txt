@@ -1,0 +1,4 @@
+mediapy
+mujoco
+ipykernel
+pandas
