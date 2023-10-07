@@ -2,3 +2,4 @@ mediapy
 mujoco
 ipykernel
 pandas
+scikit-learn
