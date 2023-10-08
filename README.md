@@ -2,9 +2,9 @@
 
 ## Team:
 
-Lev Kozlov - l.kozlov@innopolis.university
-Anton Kirilin - a.kirilin@innopolis.university
-Ilia Milyoshin - i.mileshin@innopolis.university
+* Lev Kozlov - l.kozlov@innopolis.university
+* Anton Kirilin - a.kirilin@innopolis.university
+* Ilia Milyoshin - i.mileshin@innopolis.university
 
 ## Description
 

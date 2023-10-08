@@ -3,3 +3,4 @@ mujoco
 ipykernel
 pandas
 scikit-learn
+ipympl
