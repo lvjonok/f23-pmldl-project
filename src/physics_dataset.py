@@ -1,5 +1,6 @@
 import pandas as pd
 import torch
+import numpy as np
 
 from typing import Optional, Union, Callable
 from pathlib import Path
@@ -31,7 +32,7 @@ class PhysicsStatesDataset(Dataset):
         _state_names: list[str] = state_names or ['qpos', 'qvel', 'qacc']
         _ctrl_name: str = ctrl_name or 'ctrl'
         converters: dict[str, Callable] = {
-            i: literal_eval
+            i: lambda x: np.array(x[1:-1].split(), dtype="float")
             for i in _state_names + [_ctrl_name]
         }
 
@@ -41,10 +42,10 @@ class PhysicsStatesDataset(Dataset):
         )
 
     def preprocess(self, df: pd.DataFrame) -> tuple[torch.Tensor, torch.Tensor]:
-        states = torch.tensor([[qpos, qvel, qacc] for qpos, qvel, qacc in df[self.state_names].values])
+        states = torch.tensor(np.array([[*qpos, *qvel, *qacc] for qpos, qvel, qacc in df[self.state_names].values]))
         states = torch.squeeze(states)
 
-        ctrl = torch.tensor([i for i in df[self.ctrl_name].values])
+        ctrl = torch.tensor(np.array([i for i in df[self.ctrl_name].values]))
         ctrl = torch.squeeze(ctrl)
 
         if self.group_by_n_previous_states:
