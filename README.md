@@ -1,6 +1,6 @@
 # PMLDL project - [repo](github.com/lvjonok/f23-pmldl-project)
 
-## Team:
+## Initial team:
 
 * Lev Kozlov - l.kozlov@innopolis.university
 * Anton Kirilin - a.kirilin@innopolis.university
