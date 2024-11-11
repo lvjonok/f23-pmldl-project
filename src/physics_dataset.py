@@ -2,7 +2,7 @@ import pandas as pd
 import torch
 import numpy as np
 
-from typing import Optional, Union, Callable
+from typing import Optional, Union, Callable, Sequence
 from pathlib import Path
 from ast import literal_eval
 from torch.utils.data import Dataset
@@ -15,12 +15,18 @@ class PhysicsStatesDataset(Dataset):
                  dataframe_or_path: Union[pd.DataFrame, str, Path],
                  group_by_n_previous_states: Optional[int] = None,
                  state_names: Optional[list[str]] = None,
-                 ctrl_name: Optional[str] = None):
+                 ctrl_name: Optional[str] = None,
+                 ctrl_noise: Optional[Callable[[Sequence[int]], torch.Tensor]] = None,
+                 state_noise: Optional[Callable[[Sequence[int]], torch.Tensor]] = None,):
         self.group_by_n_previous_states = group_by_n_previous_states
         self.state_names = state_names or ['qpos', 'qvel', 'qacc']
         self.ctrl_name = ctrl_name or 'ctrl'
         self.dataframe = self.load_dataframe(dataframe_or_path, state_names, ctrl_name)
         self.states, self.ctrls = self.preprocess(self.dataframe)
+        if state_noise:
+            self.states += state_noise(self.states.shape)
+        if ctrl_noise:
+            self.ctrls += ctrl_noise(self.ctrls.shape)
 
     @staticmethod
     def load_dataframe(dataframe_or_path: Union[pd.DataFrame, str, Path],

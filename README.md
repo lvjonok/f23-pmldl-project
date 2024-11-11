@@ -22,7 +22,7 @@ Service stages:
 - discussed what we would like to see at the end of project
 - agreed on the list of dynamic models we would like to experiment with
 
-## After 18.09
+## After 18.09.2023
 
 - after the review we agreed that project idea needs reformulation and we dropped this idea
 
@@ -32,4 +32,7 @@ Service stages:
 - formulate trajectory optimization task where the dynamics of model is given by neural network prediction
 - we aim to use [`CasADi`](https://web.casadi.org/) to create a nonlinear program from optimization task and [`l4casadi`](https://github.com/Tim-Salzmann/l4casadi) as framework to integrate `pyTorch` model
 
+## After 11.11.2024
 
+- Added noisy dataset creation
+- Comparison of two models (trained on noisy data and on initial one)

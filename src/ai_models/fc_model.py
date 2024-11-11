@@ -17,6 +17,7 @@ class FullyConnectedCtrl(BaseAiCtrl):
         linear_hidden_size: int,
         linear_dropout: float = 0,
         linear_activation: Optional[nn.Module] = None,
+        dtype: torch.dtype = torch.float32,
     ):
         """
         Initialize the FullyConnectedCtrl model.
@@ -28,6 +29,7 @@ class FullyConnectedCtrl(BaseAiCtrl):
             linear_hidden_size (int): Number of features in the hidden layers of the fully connected part.
             linear_dropout (float, optional): Dropout rate for the linear layers.
             linear_activation (Optional[nn.Module], optional): Activation function for the linear layers.
+            dtype (torch.dtype): The numeric type of layers, default is float32
 
         Raises:
             ValueError: If an unsupported RNN cell type is provided.
@@ -43,17 +45,17 @@ class FullyConnectedCtrl(BaseAiCtrl):
             # Hidden linear layers
             *[
                 nn.Sequential(
-                    nn.Linear(3 * nv, linear_hidden_size)
+                    nn.Linear(3 * nv, linear_hidden_size, dtype=dtype)
                     if i == 0
-                    else nn.Linear(linear_hidden_size, linear_hidden_size),
+                    else nn.Linear(linear_hidden_size, linear_hidden_size, dtype=dtype),
                     self.linear_activation,
                 )
                 for i in range(linear_layers - 1)
             ],
             # Last layer
-            nn.Linear(linear_hidden_size, ctrl)
+            nn.Linear(linear_hidden_size, ctrl, dtype=dtype)
             if linear_layers > 1
-            else nn.Linear(3 * nv, ctrl),
+            else nn.Linear(3 * nv, ctrl, dtype=dtype),
         )
         self._dummy_param = nn.Parameter(torch.empty(0))
 

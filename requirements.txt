@@ -4,3 +4,6 @@ ipykernel
 pandas
 scikit-learn
 ipympl
+csnn
+casadi
+pin
