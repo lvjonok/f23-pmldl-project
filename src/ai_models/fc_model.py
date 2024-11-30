@@ -4,7 +4,7 @@ from typing import Any, Union, Optional
 from torch import nn
 from src.ai_models.base import BaseAiCtrl
 import casadi as cs
-from csnn import set_sym_type, Linear, Sequential, ReLU, Module
+from csnn import set_sym_type, Linear, Sequential, ReLU, Module, Tanh
 from csnn.module import SymType
 
 
@@ -17,6 +17,8 @@ class FullyConnectedCtrl(BaseAiCtrl):
         linear_hidden_size: int,
         linear_dropout: float = 0,
         linear_activation: Optional[nn.Module] = None,
+        last_activation: Optional[nn.Module] = None,
+        scale: float = 1.0,
         dtype: torch.dtype = torch.float32,
     ):
         """
@@ -29,6 +31,8 @@ class FullyConnectedCtrl(BaseAiCtrl):
             linear_hidden_size (int): Number of features in the hidden layers of the fully connected part.
             linear_dropout (float, optional): Dropout rate for the linear layers.
             linear_activation (Optional[nn.Module], optional): Activation function for the linear layers.
+            last_activation (Optional[nn.Module], optional): Activation function for the last layer.
+            scale (float): The scale of the output, default is 1.0
             dtype (torch.dtype): The numeric type of layers, default is float32
 
         Raises:
@@ -39,6 +43,15 @@ class FullyConnectedCtrl(BaseAiCtrl):
         self.nv = nv
         self.dropout = nn.Dropout(p=linear_dropout)
         self.linear_activation = linear_activation or nn.Sigmoid()
+        self.scale = scale
+
+        last_layer = [
+            nn.Linear(linear_hidden_size, ctrl, dtype=dtype)
+            if linear_layers > 1
+            else nn.Linear(3 * nv, ctrl, dtype=dtype)
+        ]
+        if last_activation:
+            last_layer.append(last_activation)
 
         # Linear part
         self.linear = nn.Sequential(
@@ -53,9 +66,7 @@ class FullyConnectedCtrl(BaseAiCtrl):
                 for i in range(linear_layers - 1)
             ],
             # Last layer
-            nn.Linear(linear_hidden_size, ctrl, dtype=dtype)
-            if linear_layers > 1
-            else nn.Linear(3 * nv, ctrl, dtype=dtype),
+            *last_layer,
         )
         self._dummy_param = nn.Parameter(torch.empty(0))
 
@@ -72,7 +83,7 @@ class FullyConnectedCtrl(BaseAiCtrl):
         if x.shape[-1] != 3 * self.nv:
             raise ValueError("Input tensor should have shape (3 * nv) or (N, 3 * nv)")
 
-        return self.dropout(self.linear(x))
+        return self.dropout(self.scale * self.linear(x))
 
     def _make_predictions(self, x: torch.Tensor, **_) -> torch.Tensor:
         """
@@ -123,7 +134,7 @@ class CasadiModel:
 
         self.input = cs.SX.sym("input", 1, 3 * self.fcnn.nv)
         self.full_network = cs.Function(
-            "net", [self.input] + list(self.parameters), [self.casadi_net(self.input)]
+            "net", [self.input] + list(self.parameters), [self.fcnn.scale * self.casadi_net(self.input)]
         )
 
         self.inference = cs.Function(
@@ -147,6 +158,10 @@ class CasadiModel:
                 weights.extend(res[1])
             elif isinstance(layer, nn.Sigmoid):
                 layers.append(Sigmoid())
+            elif isinstance(layer, nn.ReLU):
+                layers.append(ReLU())
+            elif isinstance(layer, nn.Tanh):
+                layers.append(Tanh())
             else:
                 raise NotImplementedError(f"Layer type {type(layer)} is not supported.")
         return layers, weights

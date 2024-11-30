@@ -30,6 +30,7 @@ def train_one_epoch(
         # forward pass and loss calculation
         p_ctrls = train_model(states)
         p_ctrls = torch.squeeze(p_ctrls)
+        ctrls = torch.squeeze(ctrls)
         loss = loss_fn(p_ctrls, ctrls)
 
         # backward pass
@@ -62,6 +63,7 @@ def val_one_epoch(
 
             p_ctrls = train_model(states)
             p_ctrls = torch.squeeze(p_ctrls)
+            ctrls = torch.squeeze(ctrls)
             val_loss += loss_fn(p_ctrls, ctrls).item()
 
         print(f'Validation {cur_epoch}, Loss: {val_loss / len(val_loader)}')
