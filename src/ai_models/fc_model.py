@@ -17,8 +17,8 @@ class FullyConnectedCtrl(BaseAiCtrl):
         linear_hidden_size: int,
         linear_dropout: float = 0,
         linear_activation: Optional[nn.Module] = None,
-        last_activation: Optional[nn.Module] = None,
-        scale: float = 1.0,
+        first_layers: Optional[list[nn.Module]] = None,
+        last_layers: Optional[list[nn.Module]] = None,
         dtype: torch.dtype = torch.float32,
     ):
         """
@@ -31,8 +31,8 @@ class FullyConnectedCtrl(BaseAiCtrl):
             linear_hidden_size (int): Number of features in the hidden layers of the fully connected part.
             linear_dropout (float, optional): Dropout rate for the linear layers.
             linear_activation (Optional[nn.Module], optional): Activation function for the linear layers.
-            last_activation (Optional[nn.Module], optional): Activation function for the last layer.
-            scale (float): The scale of the output, default is 1.0
+            first_layers (Optional[List[nn.Module]]): First input layers, optional.
+            last_layers (Optional[List[nn.Module]]): Last output layers, optional.
             dtype (torch.dtype): The numeric type of layers, default is float32
 
         Raises:
@@ -43,18 +43,19 @@ class FullyConnectedCtrl(BaseAiCtrl):
         self.nv = nv
         self.dropout = nn.Dropout(p=linear_dropout)
         self.linear_activation = linear_activation or nn.Sigmoid()
-        self.scale = scale
+        self.first_layers = first_layers or []
+        self.last_layers = last_layers or []
 
-        last_layer = [
+        last_hidden = [
             nn.Linear(linear_hidden_size, ctrl, dtype=dtype)
             if linear_layers > 1
             else nn.Linear(3 * nv, ctrl, dtype=dtype)
         ]
-        if last_activation:
-            last_layer.append(last_activation)
 
         # Linear part
         self.linear = nn.Sequential(
+            # First layers
+            *self.first_layers,
             # Hidden linear layers
             *[
                 nn.Sequential(
@@ -65,8 +66,9 @@ class FullyConnectedCtrl(BaseAiCtrl):
                 )
                 for i in range(linear_layers - 1)
             ],
-            # Last layer
-            *last_layer,
+            *last_hidden,
+            # Last layers
+            *self.last_layers,
         )
         self._dummy_param = nn.Parameter(torch.empty(0))
 
@@ -83,7 +85,7 @@ class FullyConnectedCtrl(BaseAiCtrl):
         if x.shape[-1] != 3 * self.nv:
             raise ValueError("Input tensor should have shape (3 * nv) or (N, 3 * nv)")
 
-        return self.dropout(self.scale * self.linear(x))
+        return self.dropout(self.linear(x))
 
     def _make_predictions(self, x: torch.Tensor, **_) -> torch.Tensor:
         """
@@ -96,6 +98,7 @@ class FullyConnectedCtrl(BaseAiCtrl):
             torch.Tensor: Model predictions.
         """
 
+        self.eval()
         with torch.no_grad():
             result = self(x)
 
@@ -134,7 +137,7 @@ class CasadiModel:
 
         self.input = cs.SX.sym("input", 1, 3 * self.fcnn.nv)
         self.full_network = cs.Function(
-            "net", [self.input] + list(self.parameters), [self.fcnn.scale * self.casadi_net(self.input)]
+            "net", [self.input] + list(self.parameters), [self.casadi_net(self.input)]
         )
 
         self.inference = cs.Function(

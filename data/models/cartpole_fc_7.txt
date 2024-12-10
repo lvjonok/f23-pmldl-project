@@ -1,0 +1,16 @@
+loss: 0.000736087755067274
+
+FullyConnectedCtrl(
+  (dropout): Dropout(p=0.1, inplace=False)
+  (linear_activation): Sigmoid()
+  (linear): Sequential(
+    (0): Linear(in_features=6, out_features=6, bias=True)
+    (1): Sequential(
+      (0): Linear(in_features=6, out_features=100, bias=True)
+      (1): Sigmoid()
+    )
+    (2): Linear(in_features=100, out_features=2, bias=True)
+    (3): Tanh()
+    (4): Linear(in_features=2, out_features=2, bias=True)
+  )
+)

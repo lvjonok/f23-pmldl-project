@@ -3,6 +3,17 @@ import torch
 from typing import Union, Optional
 from torch import nn
 from torch.utils.data import DataLoader
+from pathlib import Path
+
+
+def write_model_info(ckpt_path: Union[str, Path], train_model: nn.Module, loss: float):
+    ckpt_path = Path(ckpt_path)
+    model_name = ckpt_path.stem
+    info_path = ckpt_path.parent / f"{model_name}.txt"
+    model_info = str(train_model)
+    with open(info_path, "w") as file:
+        file.write(f"loss: {loss}\n\n")
+        file.write(model_info)
 
 
 def to_device(_device: torch.device, *tensors: torch.Tensor) -> tuple[torch.Tensor, ...]:
@@ -71,6 +82,7 @@ def val_one_epoch(
         if val_loss / len(val_loader) < best and ckpt_path:
             torch.save(train_model.state_dict(), ckpt_path)
             best = val_loss / len(val_loader)
+            write_model_info(ckpt_path, train_model, best)
 
     return best, val_loss / len(val_loader)
 

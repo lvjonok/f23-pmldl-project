@@ -1,0 +1,14 @@
+loss: 0.0008302355802152306
+
+FullyConnectedCtrl(
+  (dropout): Dropout(p=0.1, inplace=False)
+  (linear_activation): ReLU()
+  (linear): Sequential(
+    (0): Sequential(
+      (0): Linear(in_features=6, out_features=10, bias=True)
+      (1): ReLU()
+    )
+    (1): Linear(in_features=10, out_features=2, bias=True)
+    (2): Tanh()
+  )
+)
