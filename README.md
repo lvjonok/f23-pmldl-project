@@ -8,19 +8,22 @@
 
 ## Description
 
-Implementation of service for system identification problem using deep learning. The top view on the problem is to infer dynamic parameters of dynamic model given data with trajectories. Although in control engineering this problem is mostly tackled with the use of physically-inspired regressors which might limit complexity of the model, we will try to utilize the use of deep learning and provide comparison between results.
+This is a repository with code for experiments on solving the trajectory optimization problem with using neural networks for calculating the inverse dynamics of a system. 
+in the repo you can find:
+- [`paper draft`](https://github.com/lvjonok/f23-pmldl-project/blob/ilia/ArticleDraft.pdf)
+- [`Final solution demonstration`](https://github.com/lvjonok/f23-pmldl-project/blob/ilia/notebooks/final/cart_pole.ipynb)
+- [`Demonstartion dataset geenration`](https://github.com/lvjonok/f23-pmldl-project/blob/ilia/simulation/cart_pole.ipynb)
 
-Service stages:
-1. Request structural description of dynamic model (URDF)
-2. Request trajectories from experiments
-3. Train model and evaluate
-4. Output description of dynamic model with inferred parameters (URDF)
+You are free to explore other parts of the repo and ask question about it. Simply create an issue and we'll answer it later.
+
+
 
 ## What have been done so far?
 
-- reviewed the [paper](https://www.sciencedirect.com/science/article/pii/S2405896320317353) we were inspired by
-- discussed what we would like to see at the end of project
-- agreed on the list of dynamic models we would like to experiment with
+- Did experiments with noiseless data
+- tried out a gaussian noise models
+- wrote a draft of the paper for submission
+- reviewd a few articles for exploring the problem
 
 ## After 18.09.2023
 
