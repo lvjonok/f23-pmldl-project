@@ -1,12 +1,81 @@
 import torch
+import casadi as cs
 
 from typing import Any, Union, Optional
 from torch import nn
 from src.ai_models.base import BaseAiCtrl
-import casadi as cs
+
 from csnn import set_sym_type, Linear, Sequential, ReLU, Module, Tanh
 from csnn.module import SymType
 
+
+class SemiSin(nn.Module):
+    def __init__(self):
+        super(SemiSin, self).__init__()
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        if len(x.shape) == 0:
+            return x
+        if len(x.shape) == 1:
+            lin_inp = x[::4]
+            sqr_inp = x[1::4]
+            sin_inp = x[2::4]
+            mul_inp = x[3::4]
+            res = torch.zeros_like(x)
+            res[::4] = lin_inp
+            res[1::4] = torch.square(sqr_inp)
+            res[2::4] = torch.sin(sin_inp)
+            res[3::4] = mul_inp * sin_inp
+            return res
+
+        lin_inp = x[:,::4]
+        sqr_inp = x[:,1::4]
+        sin_inp = x[:,2::4]
+        mul_inp = x[:,3::4]
+        res = torch.zeros_like(x)
+        res[:,::4] = lin_inp
+        res[:,1::4] = torch.square(sqr_inp)
+        res[:,2::4] = torch.sin(sin_inp)
+        res[:,3::4] = mul_inp * sin_inp
+        return res
+
+
+class SemiSinCS(Module[SymType]):
+    def forward(self, input: SymType) -> SymType:
+        if len(input.shape) == 0:
+            return input
+        if len(input.shape) == 1:
+            lin_inp = input[::4]
+            sqr_inp = input[1::4]
+            sin_inp = input[2::4]
+            mul_inp = input[3::4]
+
+            if isinstance(input, cs.MX):
+                res = cs.MX.zeros(input.size())
+            else:
+                res = cs.SX.zeros(input.size())
+
+            res[::4] = lin_inp
+            res[1::4] = cs.power(sqr_inp, 2)
+            res[2::4] = cs.sin(sin_inp)
+            res[3::4] = mul_inp * sin_inp
+            return res
+
+        lin_inp = input[:,::4]
+        sqr_inp = input[:,1::4]
+        sin_inp = input[:,2::4]
+        mul_inp = input[:,3::4]
+
+        if isinstance(input, cs.MX):
+            res = cs.MX.zeros(input.size())
+        else:
+            res = cs.SX.zeros(input.size())
+
+        res[:,::4] = lin_inp
+        res[:,1::4] = cs.power(sqr_inp, 2)
+        res[:,2::4] = cs.sin(sin_inp)
+        res[:,3::4] = mul_inp * sin_inp
+        return res
 
 class FullyConnectedCtrl(BaseAiCtrl):
     def __init__(
@@ -165,6 +234,8 @@ class CasadiModel:
                 layers.append(ReLU())
             elif isinstance(layer, nn.Tanh):
                 layers.append(Tanh())
+            elif isinstance(layer, SemiSin):
+                layers.append(SemiSinCS())
             else:
                 raise NotImplementedError(f"Layer type {type(layer)} is not supported.")
         return layers, weights

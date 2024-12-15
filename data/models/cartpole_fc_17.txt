@@ -1,0 +1,13 @@
+loss: 0.08341021214922269
+
+FullyConnectedCtrl(
+  (dropout): Dropout(p=0.1, inplace=False)
+  (linear_activation): Tanh()
+  (linear): Sequential(
+    (0): Sequential(
+      (0): Linear(in_features=6, out_features=100, bias=True)
+      (1): Tanh()
+    )
+    (1): Linear(in_features=100, out_features=2, bias=True)
+  )
+)
