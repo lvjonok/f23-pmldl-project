@@ -6,6 +6,25 @@ from torch.utils.data import DataLoader
 from pathlib import Path
 
 
+def is_notebook() -> bool:
+    try:
+        shell = get_ipython().__class__.__name__
+        if shell == "ZMQInteractiveShell":
+            return True  # Jupyter notebook or qtconsole
+        elif shell == "TerminalInteractiveShell":
+            return False  # Terminal running IPython
+        else:
+            return False  # Other type (?)
+    except NameError:
+        return False  # Probably standard Python interpreter
+
+
+if is_notebook():
+    from tqdm.notebook import tqdm
+else:
+    from tqdm import tqdm
+
+
 def write_model_info(ckpt_path: Union[str, Path], train_model: nn.Module, loss: float):
     ckpt_path = Path(ckpt_path)
     model_name = ckpt_path.stem
@@ -16,87 +35,93 @@ def write_model_info(ckpt_path: Union[str, Path], train_model: nn.Module, loss: 
         file.write(model_info)
 
 
-def to_device(_device: torch.device, *tensors: torch.Tensor) -> tuple[torch.Tensor, ...]:
+def to_device(
+    _device: torch.device, *tensors: torch.Tensor
+) -> tuple[torch.Tensor, ...]:
     return tuple(t.to(_device) for t in tensors)
 
 
 def train_one_epoch(
-        train_model: nn.Module,
-        optimizer: torch.optim.Optimizer,
-        loss_fn: torch.nn.Module,
-        train_loaded: DataLoader,
-        cur_epoch: int,
-        dev: torch.device,
+    train_model: nn.Module,
+    optimizer: torch.optim.Optimizer,
+    loss_fn: torch.nn.Module,
+    train_loader: DataLoader,
+    dev: torch.device,
+    epoch: int,
 ) -> float:
     # training loop description
     train_model.train()
     train_loss = 0.0
     # iterate over dataset
-    for i, data in enumerate(train_loaded, 1):
-        states, ctrls = to_device(dev, *data)
-
-        # zero the parameter gradients
-        optimizer.zero_grad()
-
-        # forward pass and loss calculation
-        p_ctrls = train_model(states)
-        p_ctrls = torch.squeeze(p_ctrls)
-        ctrls = torch.squeeze(ctrls)
-        loss = loss_fn(p_ctrls, ctrls)
-
-        # backward pass
-        loss.backward()
-
-        # optimizer run
-        optimizer.step()
-
-        train_loss += loss.item()
-
-    print(f'Epoch {cur_epoch}, Loss: {train_loss / len(train_loaded)}')
-    return train_loss / len(train_loaded)
-
-
-def val_one_epoch(
-        train_model: nn.Module,
-        loss_fn: torch.nn.Module,
-        val_loader: DataLoader,
-        cur_epoch: int,
-        best: float,
-        dev: torch.device,
-        ckpt_path: Optional[str],
-) -> tuple[float, float]:
-    # validation
-    val_loss = 0.0
-    with torch.no_grad():
-        train_model.eval()  # evaluation mode
-        for i, data in enumerate(val_loader, 1):
+    with tqdm(enumerate(train_loader, 1), unit="batch", total=len(train_loader)) as bar:
+        for i, data in bar:
+            bar.set_description(f"Training, epoch {epoch}")
             states, ctrls = to_device(dev, *data)
 
+            # zero the parameter gradients
+            optimizer.zero_grad()
+
+            # forward pass and loss calculation
             p_ctrls = train_model(states)
             p_ctrls = torch.squeeze(p_ctrls)
             ctrls = torch.squeeze(ctrls)
-            val_loss += loss_fn(p_ctrls, ctrls).item()
+            loss = loss_fn(p_ctrls, ctrls)
 
-        print(f'Validation {cur_epoch}, Loss: {val_loss / len(val_loader)}')
+            # backward pass
+            loss.backward()
 
-        if val_loss / len(val_loader) < best and ckpt_path:
-            torch.save(train_model.state_dict(), ckpt_path)
-            best = val_loss / len(val_loader)
-            write_model_info(ckpt_path, train_model, best)
+            # optimizer run
+            optimizer.step()
 
-    return best, val_loss / len(val_loader)
+            train_loss += loss.item()
+            bar.set_postfix(loss=train_loss / i)
+
+    return train_loss / len(train_loader)
+
+
+def val_one_epoch(
+    train_model: nn.Module,
+    loss_fn: torch.nn.Module,
+    loader: DataLoader,
+    dev: torch.device,
+    epoch: int,
+    prefix: str = "Evaluation",
+) -> float:
+    # validation
+    mean_loss = 0.0
+    with torch.no_grad():
+        train_model.eval()  # evaluation mode
+
+        # Compute loss
+        val_loss = 0.0
+        with tqdm(enumerate(loader, 1), unit="batch", total=len(loader)) as bar:
+            for i, data in bar:
+                bar.set_description(f"{prefix}, epoch {epoch}")
+                states, ctrls = to_device(dev, *data)
+
+                p_ctrls = train_model(states)
+                p_ctrls = torch.squeeze(p_ctrls)
+                ctrls = torch.squeeze(ctrls)
+                val_loss += loss_fn(p_ctrls, ctrls).item()
+                bar.set_postfix(loss=val_loss / i)
+
+        mean_loss = val_loss / len(loader)
+
+    return mean_loss
 
 
 class BaseAiCtrl(nn.Module):
     def __init__(self):
         super(BaseAiCtrl, self).__init__()
 
-    def train_model(self,
-                    train_loader: DataLoader,
-                    val_loader: Optional[DataLoader],
-                    epochs: int,
-                    optimizer: Optional[torch.optim.Optimizer] = None,
-                    ckpt_path: Optional[str] = "best.pt") -> Union[tuple[list[float], list[float]], list[float]]:
+    def train_model(
+        self,
+        train_loader: DataLoader,
+        val_loader: Optional[DataLoader],
+        epochs: int,
+        optimizer: Optional[torch.optim.Optimizer] = None,
+        ckpt_path: Optional[str] = "best.pt",
+    ) -> Union[tuple[list[float], list[float]], list[float]]:
         """
         Train the AI control model.
 
@@ -117,39 +142,37 @@ class BaseAiCtrl(nn.Module):
 
         train_losses = []
         val_losses = []
-        best = float('inf')
+        best = float("inf")
 
-        for epoch in range(epochs):
+        for epoch in range(1, epochs + 1):
             train_loss = train_one_epoch(
                 self,
                 optimizer,
                 loss_fn,
                 train_loader,
-                epoch + 1,
                 device,
+                epoch,
             )
             train_losses.append(train_loss)
 
             if val_loader:
-                best, val_loss = val_one_epoch(
-                    self,
-                    loss_fn,
-                    val_loader,
-                    epoch + 1,
-                    best,
-                    device,
-                    ckpt_path,
+                val_loss = val_one_epoch(
+                    self, loss_fn, val_loader, device, epoch, prefix="Validation"
                 )
                 val_losses.append(val_loss)
-                continue
+            else:
+                val_loss = None
 
-            # Save model by train loss
-            if best > train_loss and ckpt_path:
+            # Save model by loss
+            cur_loss = val_loss if val_loss is not None else train_loss
+            if cur_loss < best and ckpt_path:
                 torch.save(self.state_dict(), ckpt_path)
-                best = train_loss
+                best = cur_loss
+                write_model_info(ckpt_path, self, best)
 
         if val_loader:
             return train_losses, val_losses
+
         return train_losses
 
     def make_predictions(self, x: torch.Tensor, **kwargs) -> torch.Tensor:
@@ -163,7 +186,7 @@ class BaseAiCtrl(nn.Module):
         Returns:
             torch.Tensor: Model predictions.
         """
-        x_dev = 'cuda' if x.get_device() > -1 else 'cpu'
+        x_dev = "cuda" if x.get_device() > -1 else "cpu"
         m_dev: torch.device = self._dummy_param.device
 
         # To model device
